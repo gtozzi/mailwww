@@ -1,0 +1,12 @@
+
+mailwww
+
+Mailwww is a simple and easy to use python script that reads a web page and
+sends it to a list of email addresses.
+It can be used from command line or in a *nix cronjob, or in a windows
+scheduled task.
+
+use mailwww.py --help to get full documentation
+
+This is open source GPL software.
+
