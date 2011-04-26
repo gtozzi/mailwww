@@ -93,6 +93,8 @@ class main:
         # Opens URL
         f = urllib.urlopen(url)
         html = f.read()
+        encoding = f.headers['content-type'].split('charset=')[-1]
+        html = unicode(html, encoding, errors='replace')
         f.close()
         
         # Retrieve linked style sheets
