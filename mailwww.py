@@ -41,7 +41,7 @@ class main:
     VERSION = '0.3'
 
     def run(self):
-        """ Main entry point principale """
+        """ Main entry point """
 
         # Read command line
         usage = "%prog [options] <url> <address> [<address2>] [<address...>]"
@@ -64,12 +64,18 @@ class main:
         parser.add_option("-n", "--no-css", dest="nocss",
             help="Disable embedding of linked Style Sheets",
             default=False, action="store_true")
+        parser.add_option("-m", "--multiple", dest="multiple",
+            help="Send multiple emails: one for each recipient (Cc field is ignored)",
+            default=False, action="store_true")
+        parser.add_option("-v", "--vverbose", dest="verbose",
+            help="Show progress information",
+            default=False, action="store_true")
 
         (options, args) = parser.parse_args()
         
         # Parse mandatory arguments
         if len(args) < 2:
-            parser.error("numero di argomenti non valido")
+            parser.error("unvalid number of arguments")
         dest = []
         i = 0
         for a in args:
@@ -90,8 +96,12 @@ class main:
         sender = options.sender
         subject = options.subject
         nocss = options.nocss
+        multiple = options.multiple
+        verbose = options.verbose
 
         # Opens URL
+        if verbose:
+            print 'Fetching url', url
         f = urllib.urlopen(url)
         html = f.read()
         # Search for meta content-type tag, use this encoding when found
@@ -108,10 +118,14 @@ class main:
         else:
             encoding = f.headers['content-type'].split('charset=')[-1]
             html = unicode(html, encoding, errors='replace')
+        if verbose:
+            print 'Detected charset:', encoding
         f.close()
         
         # Retrieve linked style sheets
         if not nocss:
+            if verbose:
+                print 'Fetching Style Sheets...'
             parser = CSSLister(url)
             parser.feed(html)
             parser.close()
@@ -124,20 +138,34 @@ class main:
         msg['Message-ID'] = make_msgid('emailer')
         msg['Subject'] = subject
         msg['From'] = sender
-        msg['To'] = ', '.join(dest)
-        if cc:
+
+        if cc and not multiple:
             msg['Cc'] = ', '.join(cc)
         msg.preamble = 'This is a milti-part message in MIME format.'
         
         txt = MIMEText(html.encode('utf-8'), 'html', 'utf-8')
         msg.attach(txt)
         
+        if not multiple:
+            msg['To'] = ', '.join(dest)
+        
         # Sends message
         smtp = smtplib.SMTP()
         smtp.connect(host, port)
         if user:
             smtp.login(user, pwd)
-        smtp.sendmail(sender, dest+cc, msg.as_string())
+        if multiple:
+            for d in dest:
+                del msg['To']
+                msg['To'] = d
+                if verbose:
+                    print 'Sending mail to:', d
+                print msg.as_string()
+                smtp.sendmail(sender, d, msg.as_string())
+        else:
+            if verbose:
+                print 'Sending mail to:', dest, 'Cc:', cc
+            smtp.sendmail(sender, dest+cc, msg.as_string())
         smtp.quit()
 
 
