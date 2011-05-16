@@ -38,7 +38,7 @@ from email.mime.multipart import MIMEMultipart
 class main:
 
     NAME = 'mailwww'
-    VERSION = '0.3'
+    VERSION = '0.4'
 
     def run(self):
         """ Main entry point """
