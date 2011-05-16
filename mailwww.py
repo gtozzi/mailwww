@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys
+import re
 
 from optparse import OptionParser
 
@@ -93,8 +94,20 @@ class main:
         # Opens URL
         f = urllib.urlopen(url)
         html = f.read()
-        encoding = f.headers['content-type'].split('charset=')[-1]
-        html = unicode(html, encoding, errors='replace')
+        # Search for meta content-type tag, use this encoding when found
+        encre = re.compile(r'<meta\s+http-equiv=(?:"|\')Content-Type(?:"|\')\s+content=(?:"|\')([^\'"]*)(?:"|\')\s*/>',
+            re.I | re.M)
+        match = encre.search(html)
+        if match:
+            encoding = match.group(1).split('charset=')[-1]
+            try:
+                html = unicode(html, encoding, errors='replace')
+            except LookupError as e:
+                encoding = f.headers['content-type'].split('charset=')[-1]
+                html = unicode(html, encoding, errors='replace')
+        else:
+            encoding = f.headers['content-type'].split('charset=')[-1]
+            html = unicode(html, encoding, errors='replace')
         f.close()
         
         # Retrieve linked style sheets
