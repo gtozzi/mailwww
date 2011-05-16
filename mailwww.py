@@ -160,7 +160,6 @@ class main:
                 msg['To'] = d
                 if verbose:
                     print 'Sending mail to:', d
-                print msg.as_string()
                 smtp.sendmail(sender, d, msg.as_string())
         else:
             if verbose:
