@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 import re
+import MySQLdb
 
 from optparse import OptionParser
 
@@ -38,7 +39,7 @@ from email.mime.multipart import MIMEMultipart
 class main:
 
     NAME = 'mailwww'
-    VERSION = '0.4'
+    VERSION = '0.4-batch'
 
     def run(self):
         """ Main entry point """
@@ -70,12 +71,21 @@ class main:
         parser.add_option("-v", "--vverbose", dest="verbose",
             help="Show progress information",
             default=False, action="store_true")
+        parser.add_option("--sqlhost", dest="sqlhost",
+            help="Read address list from MySQL (ignore address list)")
+        parser.add_option("--sqluser", dest="sqluser",
+            help="MySQL user")
+        parser.add_option("--sqlpass", dest="sqlpass",
+            help="MySQL password")
+        parser.add_option("--sqldb", dest="sqldb",
+            help="MySQL database name (MUST contain a table named 'addressbook'")
 
         (options, args) = parser.parse_args()
         
         # Parse mandatory arguments
-        if len(args) < 2:
+        if len(args) < 1 or ( len(args) < 2 and not options.sqlhost ):
             parser.error("unvalid number of arguments")
+
         dest = []
         i = 0
         for a in args:
@@ -98,6 +108,17 @@ class main:
         nocss = options.nocss
         multiple = options.multiple
         verbose = options.verbose
+        sqlhost = options.sqlhost
+        sqluser = options.sqluser
+        sqlpass = options.sqlpass
+        sqldb = options.sqldb
+
+        # Should I read addresses from MySQL?
+        if sqlhost:
+            db = MySQLdb.connect(user = sqluser, passwd = sqlpass, host = sqlhost, db = sqldb)
+            db.set_character_set('utf8')
+        else:
+            db = None
 
         # Opens URL
         if verbose:
@@ -154,13 +175,38 @@ class main:
         smtp.connect(host, port)
         if user:
             smtp.login(user, pwd)
-        if multiple:
-            for d in dest:
-                del msg['To']
-                msg['To'] = d
-                if verbose:
-                    print 'Sending mail to:', d
-                smtp.sendmail(sender, d, msg.as_string())
+        if multiple or db:
+            if not db:
+                for d in dest:
+                    del msg['To']
+                    msg['To'] = d
+                    if verbose:
+                        print 'Sending mail to:', d
+                    smtp.sendmail(sender, d, msg.as_string())
+            else:
+                q = 'SELECT `email` FROM `addressbook` WHERE `sent` IS NULL'
+                curs = db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
+                curs.execute(q)
+                while True:
+                    res = curs.fetchone()
+                    if not res:
+                        break
+                    del msg['To']
+                    msg['To'] = res['email']
+                    if verbose:
+                        print 'Sending mail to:', res['email']
+                    smtp.sendmail(sender, res['email'], msg.as_string())
+                    
+                    if verbose:
+                        print 'Mark mail as sent'
+                    q = 'UPDATE `addressbook` SET `sent` = NOW() WHERE `email` = %s'
+                    p = (res['email'], )
+                    wcurs = db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
+                    wcurs.execute(q, p)
+                    db.commit()
+                    wcurs.close()
+                    
+                curs.close()
         else:
             if verbose:
                 print 'Sending mail to:', dest, 'Cc:', cc
