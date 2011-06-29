@@ -184,7 +184,7 @@ class main:
                         print 'Sending mail to:', d
                     smtp.sendmail(sender, d, msg.as_string())
             else:
-                q = 'SELECT `email` FROM `addressbook` WHERE `sent` IS NULL'
+                q = 'SELECT `email` FROM `addressbook` WHERE `sent` IS NULL AND `error` IS NULL'
                 curs = db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
                 curs.execute(q)
                 while True:
@@ -195,12 +195,18 @@ class main:
                     msg['To'] = res['email']
                     if verbose:
                         print 'Sending mail to:', res['email']
-                    smtp.sendmail(sender, res['email'], msg.as_string())
-                    
-                    if verbose:
-                        print 'Mark mail as sent'
-                    q = 'UPDATE `addressbook` SET `sent` = NOW() WHERE `email` = %s'
-                    p = (res['email'], )
+                    p = []
+                    try:
+                        smtp.sendmail(sender, res['email'], msg.as_string())
+                    except Exception as e:
+                        print 'Error sending mail:', e
+                        q = 'UPDATE `addressbook` SET `error` = %s WHERE `email` = %s'
+                        p.append(str(e))
+                    else:
+                        if verbose:
+                            print 'Mark mail as sent'
+                        q = 'UPDATE `addressbook` SET `sent` = NOW() WHERE `email` = %s'
+                    p.append(res['email'])
                     wcurs = db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
                     wcurs.execute(q, p)
                     db.commit()
