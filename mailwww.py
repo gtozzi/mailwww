@@ -157,6 +157,7 @@ class main:
         msg = MIMEMultipart()
         msg['Date'] = formatdate(localtime=True)
         msg['Message-ID'] = make_msgid('emailer')
+        msg['X-Mailer'] = self.NAME
         msg['Subject'] = subject
         msg['From'] = sender
 
