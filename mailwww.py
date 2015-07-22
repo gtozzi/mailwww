@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# kate: space-indent on; tab-width 4; indent-width 4;
 
 """ @package docstring
 Cronjob emailer script
@@ -38,7 +39,7 @@ from email.mime.multipart import MIMEMultipart
 class main:
 
     NAME = 'mailwww'
-    VERSION = '0.4'
+    VERSION = '0.5'
 
     def run(self):
         """ Main entry point """
@@ -46,12 +47,16 @@ class main:
         # Read command line
         usage = "%prog [options] <url> <address> [<address2>] [<address...>]"
         parser = OptionParser(usage=usage, version=self.NAME + ' ' + self.VERSION)
+        parser.add_option("--http-user", dest="http_user",
+            help="Username for HTTP POST authentication")
+        parser.add_option("--http-pass", dest="http_pass",
+            help="Password for HTTP POST authentication")
         parser.add_option("-s", "--smtp", dest="smtp",
             help="SMTP server address. Default: localhost",
             default='localhost')
-        parser.add_option("-u", "--smtp_user", dest="smtp_user",
+        parser.add_option("--smtp-user", dest="smtp_user",
             help="Username for SMTP authentication")
-        parser.add_option("-p", "--smtp_pass", dest="smtp_pass",
+        parser.add_option("--smtp-pass", dest="smtp_pass",
             help="Password for SMTP authentication")
         parser.add_option("-c", "--cc", dest="cc",
             help="Carbon Copy recipient")
@@ -67,7 +72,7 @@ class main:
         parser.add_option("-m", "--multiple", dest="multiple",
             help="Send multiple emails: one for each recipient (Cc field is ignored)",
             default=False, action="store_true")
-        parser.add_option("-v", "--vverbose", dest="verbose",
+        parser.add_option("-v", "--verbose", dest="verbose",
             help="Show progress information",
             default=False, action="store_true")
 
@@ -86,6 +91,8 @@ class main:
             i += 1
 
         # Parse optional arguments
+        http_user = options.http_user
+        http_pass = options.http_pass
         cc = []
         if options.cc:
             cc.append(options.cc)
@@ -102,7 +109,11 @@ class main:
         # Opens URL
         if verbose:
             print 'Fetching url', url
-        f = urllib.urlopen(url)
+        data = None
+        if http_user or http_pass:
+            # Use POST authentication
+            data = urllib.urlencode({ 'username': http_user, 'password': http_pass, 'login': True })
+        f = urllib.urlopen(url, data)
         html = f.read()
         # Search for meta content-type tag, use this encoding when found
         encre = re.compile(r'<meta\s+http-equiv=(?:"|\')Content-Type(?:"|\')\s+content=(?:"|\')([^\'"]*)(?:"|\')\s*/>',
