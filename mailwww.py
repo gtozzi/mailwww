@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import sys
 import re
 import logging
+import posixpath
 
 from optparse import OptionParser
 
@@ -179,10 +180,10 @@ class Main:
 
 
 class CSSLister(HTMLParser):
-    
+
     def __init__(self, baseurl):
         (scheme,netloc,path,parameters,query,fragment) = urlparse.urlparse(baseurl)
-        self.__baseurl = scheme + '://' + netloc + '/'
+        self.__baseurl = scheme + '://' + netloc + posixpath.dirname(path) + '/'
         HTMLParser.__init__(self)
         self.__log = logging.getLogger('css')
 
