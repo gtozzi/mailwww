@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 import re
+import logging
 
 from optparse import OptionParser
 
@@ -36,7 +37,8 @@ from email.Utils import COMMASPACE, formatdate, make_msgid
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-class main:
+
+class Main:
 
     NAME = 'mailwww'
     VERSION = '0.5'
@@ -106,9 +108,10 @@ class main:
         multiple = options.multiple
         verbose = options.verbose
 
+        logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
+
         # Opens URL
-        if verbose:
-            print 'Fetching url', url
+        logging.info('Fetching url %s', url)
         data = None
         if http_user or http_pass:
             # Use POST authentication
@@ -129,14 +132,12 @@ class main:
         else:
             encoding = f.headers['content-type'].split('charset=')[-1]
             html = unicode(html, encoding, errors='replace')
-        if verbose:
-            print 'Detected charset:', encoding
+        logging.info('Detected charset: %s', encoding)
         f.close()
         
         # Retrieve linked style sheets
         if not nocss:
-            if verbose:
-                print 'Fetching Style Sheets...'
+            logging.info('Fetching Style Sheets...')
             parser = CSSLister(url)
             parser.feed(html)
             parser.close()
@@ -169,12 +170,10 @@ class main:
             for d in dest:
                 del msg['To']
                 msg['To'] = d
-                if verbose:
-                    print 'Sending mail to:', d
+                logging.info('Sending mail to: %s', d)
                 smtp.sendmail(sender, d, msg.as_string())
         else:
-            if verbose:
-                print 'Sending mail to:', dest, 'Cc:', cc
+            logging.info('Sending mail to: %s, Cc: %s', dest, cc)
             smtp.sendmail(sender, dest+cc, msg.as_string())
         smtp.quit()
 
@@ -185,30 +184,32 @@ class CSSLister(HTMLParser):
         (scheme,netloc,path,parameters,query,fragment) = urlparse.urlparse(baseurl)
         self.__baseurl = scheme + '://' + netloc + '/'
         HTMLParser.__init__(self)
-    
+        self.__log = logging.getLogger('css')
+
     def reset(self):
         self.__repl = []
         HTMLParser.reset(self)
-    
+
     def handle_starttag(self, tag, attrs):
         if tag == 'link' and ('rel', 'stylesheet') in attrs:
             # Found new link tag
             for k, v in attrs:
                 if k == 'href':
                     # Go get the CSS
+                    self.__log.info('Fetching CSS %s%s', self.__baseurl, v)
                     c = urllib.urlopen(self.__baseurl + v)
                     css = "<style>\n" + c.read() + "</style>\n"
                     c.close()
                     self.__repl.append( (self.get_starttag_text(), css) )
                     break
-    
+
     def handle_endtag(self, data):
         pass
-    
+
     def get_replacements(self):
         return self.__repl
 
 if __name__ == '__main__':
-    app = main()
+    app = Main()
     app.run()
     sys.exit(0)
