@@ -80,7 +80,7 @@ class Main:
             default=False, action="store_true")
 
         (options, args) = parser.parse_args()
-        
+
         # Parse mandatory arguments
         if len(args) < 2:
             parser.error("unvalid number of arguments")
@@ -124,18 +124,18 @@ class Main:
             re.I | re.M)
         match = encre.search(html)
         if match:
-            encoding = match.group(1).split('charset=')[-1]
+            encoding = self.__parseEncoding(match.group(1))
             try:
                 html = unicode(html, encoding, errors='replace')
             except LookupError as e:
-                encoding = f.headers['content-type'].split('charset=')[-1]
+                encoding = self.__parseEncoding(f.headers['content-type'])
                 html = unicode(html, encoding, errors='replace')
         else:
-            encoding = f.headers['content-type'].split('charset=')[-1]
+            encoding = self.__parseEncoding(f.headers['content-type'])
             html = unicode(html, encoding, errors='replace')
         logging.info('Detected charset: %s', encoding)
         f.close()
-        
+
         # Retrieve linked style sheets
         if not nocss:
             logging.info('Fetching Style Sheets...')
@@ -144,7 +144,7 @@ class Main:
             parser.close()
             for search, replace in parser.get_replacements():
                 html = html.replace(search, replace, 1)
-        
+
         # Prepare mail
         msg = MIMEMultipart()
         msg['Date'] = formatdate(localtime=True)
@@ -155,13 +155,13 @@ class Main:
         if cc and not multiple:
             msg['Cc'] = ', '.join(cc)
         msg.preamble = 'This is a milti-part message in MIME format.'
-        
+
         txt = MIMEText(html.encode('utf-8'), 'html', 'utf-8')
         msg.attach(txt)
-        
+
         if not multiple:
             msg['To'] = ', '.join(dest)
-        
+
         # Sends message
         smtp = smtplib.SMTP()
         smtp.connect(host, port)
@@ -177,6 +177,12 @@ class Main:
             logging.info('Sending mail to: %s, Cc: %s', dest, cc)
             smtp.sendmail(sender, dest+cc, msg.as_string())
         smtp.quit()
+
+    def __parseEncoding(self, encstr, default='utf-8'):
+        encoding = encstr.split('charset=')[-1]
+        if encoding.find('/') == -1:
+            return encoding
+        return default
 
 
 class CSSLister(HTMLParser):
